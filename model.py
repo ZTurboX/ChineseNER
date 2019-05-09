@@ -16,6 +16,7 @@ class EntModel(nn.Module):
         self.word_embedding=nn.Embedding(self.words_number,self.embedding_size)
         self.load_pretrained_embedding(config)
         self.dropout=nn.Dropout(config.dropout)
+        self.use_cuda = use_cuda
         self.rnn=nn.LSTM(self.embedding_size,self.hidden_size//2,num_layers=1,bidirectional=True,batch_first=True)
 
         self.tags_size=config.tags_number
@@ -23,10 +24,8 @@ class EntModel(nn.Module):
         self.hidden2tag=nn.Linear(self.hidden_size,self.tags_size)
 
         self.transitions=nn.Parameter(torch.randn(self.tags_size,self.tags_size))
-        self.transitions.data[self.tag2id["START"],:]=-10000
-        self.transitions.data[:,self.tag2id["STOP"]]=-10000
-        self.use_cuda=use_cuda
-
+        self.transitions.data[self.tag2id["START"],:]=-1000.
+        self.transitions.data[:,self.tag2id["STOP"]]=-1000.
 
 
     def load_pretrained_embedding(self,config:const.Config):
@@ -41,17 +40,21 @@ class EntModel(nn.Module):
                 embeddding_matrix[self.vocab[word]]=words_vectors[word]
         self.word_embedding.weight=nn.Parameter(torch.tensor(embeddding_matrix))
 
-    def run_rnn(self,sentence_tensor):
-        embed=self.word_embedding(sentence_tensor).view(self.batch_size,sentence_tensor.shape[1],self.embedding_size)
-        #embed_pack=nn.utils.rnn.pack_padded_sequence(embed,length_tenor,batch_first=True)
-        lstm_output,_=self.rnn(embed)
-        #lstm_output,_=nn.utils.rnn.pad_packed_sequence(lstm_output,batch_first=True)
-        lstm_output=lstm_output.view(self.batch_size,-1,self.hidden_size)
+    def run_rnn(self,sentence_tensor,length_tensor):
+        #embed=self.word_embedding(sentence_tensor).view(self.batch_size,sentence_tensor.shape[1],self.embedding_size)
+        embed = self.word_embedding(sentence_tensor)
+        embed=self.dropout(embed)
+        embed_pack=nn.utils.rnn.pack_padded_sequence(embed,length_tensor,batch_first=True)
+        lstm_output,_=self.rnn(embed_pack)
+        lstm_output,_=nn.utils.rnn.pad_packed_sequence(lstm_output,batch_first=True)
+        #lstm_output=lstm_output.view(self.batch_size,-1,self.hidden_size)
         output=self.hidden2tag(lstm_output)
         return output
 
     def get_gold_score(self,logits,tags):
         score=torch.zeros(1)
+        if self.use_cuda:
+            score=score.cuda()
         tags_tensor=torch.cat([utils.convert_long_tensor([self.tag2id["START"]],self.use_cuda),tags])
         for i,feat in enumerate(logits):
             score=score+self.transitions[tags_tensor[i+1],tags_tensor[i]]+feat[tags_tensor[i+1]]
@@ -66,7 +69,9 @@ class EntModel(nn.Module):
         return res
 
     def get_forward_score(self,lstm_output):
-        init_score=torch.full((1,self.tags_size),-10000.)
+        init_score=torch.full((1,self.tags_size),0.)
+        if self.use_cuda:
+            init_score=init_score.cuda()
         init_score[0][self.tag2id["START"]]=0.
         forward_var=init_score
         for feat in lstm_output:
@@ -81,22 +86,14 @@ class EntModel(nn.Module):
         forward_score=self.log_sum_exp(terminal_var)
         return forward_score
 
-    def get_total_score(self,logits):
-        obs=[]
-        previous=torch.full((1,self.tags_size),0)
-        for index in range(len(logits)):
-            previous=previous.expand(self.tags_size,self.tags_size).t()
-            obs=logits[index].view(1,-1).expand(self.tags_size,self.tags_size)
-            score=previous+obs+self.transitions
-            previous=self.log_sum_exp(score)
-        previous=previous+self.transitions[:,self.tag2id["STOP"]]
-        total_scores=self.log_sum_exp(previous.t())[0]
-        return total_scores
 
     def get_loss(self,sentence_tensor,tags_tensor,length_tensor):
-        lstm_output=self.run_rnn(sentence_tensor)
+        lstm_output=self.run_rnn(sentence_tensor,length_tensor)
         gold_score=torch.zeros(1)
         forward_score=torch.zeros(1)
+        if self.use_cuda:
+            gold_score=gold_score.cuda()
+            forward_score=forward_score.cuda()
         for logits,tag,length in zip(lstm_output,tags_tensor,length_tensor):
             logits=logits[:length]
             tag=tag[:length]
@@ -106,10 +103,11 @@ class EntModel(nn.Module):
 
     def viterbi_decode(self,lstm_output):
         backpointers=[]
-
-        init_vvars=torch.full((1,self.tags_size),-10000.)
+        init_vvars=torch.full((1,self.tags_size),0.)
+        init_vvars=init_vvars
+        if self.use_cuda:
+            init_vvars=init_vvars.cuda()
         init_vvars[0][self.tag2id["START"]]=0
-
         forward_var=init_vvars
         for feat in lstm_output:
             bptrs_t=[]
@@ -131,13 +129,12 @@ class EntModel(nn.Module):
         for bptrs_t in reversed(backpointers):
             best_tag_id=bptrs_t[best_tag_id]
             best_path.append(best_tag_id)
-        start=best_path.pop()
-        assert start==self.tag2id["START"]
+        #start=best_path.pop()
         best_path.reverse()
         return path_score,best_path
 
     def forward(self,sentence_tensor,length_tensor):
-        lstm_output=self.run_rnn(sentence_tensor)
+        lstm_output=self.run_rnn(sentence_tensor,length_tensor)
         scores=[]
         paths=[]
         for logits,length in zip(lstm_output,length_tensor):

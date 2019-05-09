@@ -20,13 +20,14 @@ class Config:
 
         self.embedding_size=300
         self.hidden_size=200
-        self.batch_size=100
+        self.batch_size=20
         self.epoch_size=100
         self.dropout=0.5
 
         self.id2words={j:i for i,j in self.vocab.items()}
         self.id2tags={j:i for i,j in self.tags.items()}
 
-        self.model_file=os.path.join(data_home,'model','model.pt')
+        self.model=os.path.join(data_home,'model','model.pt')
+        self.model_file=os.path.join(data_home,'output')
 
 
