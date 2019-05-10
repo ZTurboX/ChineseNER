@@ -19,7 +19,7 @@ parse=argparse.ArgumentParser()
 
 parse.add_argument('--mode',default='train',help='train/test')
 parse.add_argument('--cuda',default=False)
-pasre.add_argument('--device',default="2")
+pasre.add_argument('--device',default="3")
 
 args=parse.parse_args()
 

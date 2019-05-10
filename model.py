@@ -69,7 +69,7 @@ class EntModel(nn.Module):
         return res
 
     def get_forward_score(self,lstm_output):
-        init_score=torch.full((1,self.tags_size),-10000)
+        init_score=torch.full((1,self.tags_size),-10000.)
         if self.use_cuda:
             init_score=init_score.cuda()
         init_score[0][self.tag2id["START"]]=0
