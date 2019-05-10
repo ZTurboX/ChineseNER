@@ -8,13 +8,13 @@
 
   ![](<https://github.com/zhentaoCoding/ChineseNER/blob/master/img/architecture.PNG>)
 
-  
-
 - ### word embedding
 
   glove
 
 - ## Bi-LSTM Layers
+
+  ![](<https://github.com/zhentaoCoding/ChineseNER/blob/master/img/4.PNG>)
 
 - ### CRF Tagging Models
 
