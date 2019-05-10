@@ -24,8 +24,8 @@ class EntModel(nn.Module):
         self.hidden2tag=nn.Linear(self.hidden_size,self.tags_size)
 
         self.transitions=nn.Parameter(torch.randn(self.tags_size,self.tags_size))
-        self.transitions.data[self.tag2id["START"],:]=-1000.
-        self.transitions.data[:,self.tag2id["STOP"]]=-1000.
+        self.transitions.data[self.tag2id["START"],:]=-10000.
+        self.transitions.data[:,self.tag2id["STOP"]]=-10000.
 
 
     def load_pretrained_embedding(self,config:const.Config):
@@ -69,10 +69,10 @@ class EntModel(nn.Module):
         return res
 
     def get_forward_score(self,lstm_output):
-        init_score=torch.full((1,self.tags_size),0.)
+        init_score=torch.full((1,self.tags_size),-10000)
         if self.use_cuda:
             init_score=init_score.cuda()
-        init_score[0][self.tag2id["START"]]=0.
+        init_score[0][self.tag2id["START"]]=0
         forward_var=init_score
         for feat in lstm_output:
             score_t=[]
@@ -103,8 +103,7 @@ class EntModel(nn.Module):
 
     def viterbi_decode(self,lstm_output):
         backpointers=[]
-        init_vvars=torch.full((1,self.tags_size),0.)
-        init_vvars=init_vvars
+        init_vvars=torch.full((1,self.tags_size),-10000.)
         if self.use_cuda:
             init_vvars=init_vvars.cuda()
         init_vvars[0][self.tag2id["START"]]=0
@@ -129,7 +128,7 @@ class EntModel(nn.Module):
         for bptrs_t in reversed(backpointers):
             best_tag_id=bptrs_t[best_tag_id]
             best_path.append(best_tag_id)
-        #start=best_path.pop()
+        start=best_path.pop()
         best_path.reverse()
         return path_score,best_path
 

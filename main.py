@@ -19,14 +19,16 @@ parse=argparse.ArgumentParser()
 
 parse.add_argument('--mode',default='train',help='train/test')
 parse.add_argument('--cuda',default=False)
+pasre.add_argument('--device',default="2")
 
 args=parse.parse_args()
 
 mode=args.mode
 use_cuda=args.cuda
+device_id=args.device
 if use_cuda:
     torch.cuda.manual_seed(1)
-    os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+    os.environ["CUDA_VISIBLE_DEVICES"] = device_id
 
 model=model.EntModel(config,use_cuda)
 if use_cuda:
@@ -111,7 +113,7 @@ def dev_step(dev_data):
 
     p=0. if found==0 else (correct/found)
     r=0. if origin==0 else (correct/origin)
-    f1=(2*p*r)/(p+r)
+    f1=0. if p+r==0 else (2*p*r)/(p+r)
     print("precision : %.3f , recall : %.3f , f1 : %.3f " % (p,r,f1))
     return f1
 

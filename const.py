@@ -3,11 +3,11 @@ import os
 
 class Config:
     def __init__(self):
-        home="./"
+        home="/home/xzt/ChineseNER"
         data_home=os.path.join(home,"data")
 
-        self.train_data_file=os.path.join(data_home,"train.json")
-        self.test_data_ffile=os.path.join(data_home,"test.json")
+        self.train_data_file=os.path.join(data_home,"t.json")
+        self.test_data_ffile=os.path.join(data_home,"te.json")
         self.vector_file=os.path.join(data_home,"vectors-300.txt")
         self.vocab_file=os.path.join(data_home,"vocab.json")
         self.tags_file=os.path.join(data_home,"tags.json")
