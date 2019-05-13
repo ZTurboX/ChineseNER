@@ -41,13 +41,11 @@ class EntModel(nn.Module):
         self.word_embedding.weight=nn.Parameter(torch.tensor(embeddding_matrix))
 
     def run_rnn(self,sentence_tensor,length_tensor):
-        #embed=self.word_embedding(sentence_tensor).view(self.batch_size,sentence_tensor.shape[1],self.embedding_size)
         embed = self.word_embedding(sentence_tensor)
         embed=self.dropout(embed)
         embed_pack=nn.utils.rnn.pack_padded_sequence(embed,length_tensor,batch_first=True)
         lstm_output,_=self.rnn(embed_pack)
         lstm_output,_=nn.utils.rnn.pad_packed_sequence(lstm_output,batch_first=True)
-        #lstm_output=lstm_output.view(self.batch_size,-1,self.hidden_size)
         output=self.hidden2tag(lstm_output)
         return output
 
@@ -73,15 +71,28 @@ class EntModel(nn.Module):
         if self.use_cuda:
             init_score=init_score.cuda()
         init_score[0][self.tag2id["START"]]=0
+        #初始状态
         forward_var=init_score
         for feat in lstm_output:
+            #当前时刻score
             score_t=[]
             for next_tag in range(self.tags_size):
+                #有lstm输出层到标签next_tag的概率
                 emit_score=feat[next_tag].view(1,-1).expand(1,self.tags_size)
+                #所有其他标签转移到next_tag的概率
                 transition_score=self.transitions[next_tag].view(1,-1)
+                '''
+                {"sentence": ["陈", "明", "亮", "又", "哭", "又", "闹", "，", "但", "仍", "无", "济", "于", "事", "。"],
+                "tags": ["B-PER", "I-PER", "I-PER", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O", "O"]}
+                
+                先算出"陈"可能标注的所有情况，取log_sum_exp后加上转换到“明”的特征值再加上“明”对应得到某个标签的特征值
+                等价于所有可能特征值指数次幂相加，取对数
+
+                '''
                 next_tag_var=forward_var+transition_score+emit_score
                 score_t.append(self.log_sum_exp(next_tag_var).view(1))
             forward_var=torch.cat(score_t).view(1,-1)
+        #最后一个单词的forward_var与转移到stop的概率相加
         terminal_var=forward_var+self.transitions[self.tag2id["STOP"]]
         forward_score=self.log_sum_exp(terminal_var)
         return forward_score
@@ -112,11 +123,13 @@ class EntModel(nn.Module):
             bptrs_t=[]
             viterbivars_t=[]
             for next_tag in range(self.tags_size):
+                #其他标签到next_tag的概率
                 next_tag_var=forward_var+self.transitions[next_tag]
                 _,idx=torch.max(next_tag_var,1)
                 best_tag_id=idx.item()
                 bptrs_t.append(best_tag_id)
                 viterbivars_t.append(next_tag_var[0][best_tag_id].view(1))
+            #每个序列的最大score
             forward_var=(torch.cat(viterbivars_t)+feat).view(1,-1)
             backpointers.append(bptrs_t)
         terminal_var=forward_var+self.transitions[self.tag2id["STOP"]]

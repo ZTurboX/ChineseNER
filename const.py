@@ -3,11 +3,11 @@ import os
 
 class Config:
     def __init__(self):
-        home="/home/xzt/ChineseNER"
+        home="./"
         data_home=os.path.join(home,"data")
 
-        self.train_data_file=os.path.join(data_home,"t.json")
-        self.test_data_ffile=os.path.join(data_home,"te.json")
+        self.train_data_file=os.path.join(data_home,"train.json")
+        self.test_data_ffile=os.path.join(data_home,"test.json")
         self.vector_file=os.path.join(data_home,"vectors-300.txt")
         self.vocab_file=os.path.join(data_home,"vocab.json")
         self.tags_file=os.path.join(data_home,"tags.json")
@@ -20,7 +20,7 @@ class Config:
 
         self.embedding_size=300
         self.hidden_size=200
-        self.batch_size=20
+        self.batch_size=1
         self.epoch_size=100
         self.dropout=0.5
 

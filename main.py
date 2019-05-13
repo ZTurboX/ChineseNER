@@ -19,7 +19,7 @@ parse=argparse.ArgumentParser()
 
 parse.add_argument('--mode',default='train',help='train/test')
 parse.add_argument('--cuda',default=False)
-pasre.add_argument('--device',default="3")
+parse.add_argument('--device',default="3")
 
 args=parse.parse_args()
 
@@ -40,7 +40,7 @@ if mode=="test":
 
 def load_data(data_file):
     all_data=[]
-    with open(config.train_data_file,'r',encoding='utf-8') as f:
+    with open(data_file,'r',encoding='utf-8') as f:
         for line in f:
             data=[]
             sentence=json.loads(line)
